@@ -306,16 +306,16 @@ Issues, feature requests, and PRs are welcome. Some areas where contributions wo
 ## Contributors
 
 <a href="https://github.com/JackChen-me/open-multi-agent/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=JackChen-me/open-multi-agent&v=20260405" />
+  <img src="https://contrib.rocks/image?repo=JackChen-me/open-multi-agent&v=20260408" />
 </a>
 
 ## Star History
 
 <a href="https://star-history.com/#JackChen-me/open-multi-agent&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&theme=dark&v=20260405" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&v=20260405" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&v=20260405" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&theme=dark&v=20260408" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&v=20260408" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date&v=20260408" />
  </picture>
 </a>
 
