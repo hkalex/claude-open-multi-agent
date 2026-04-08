@@ -4,14 +4,14 @@
  * Demonstrates:
  * - Dependency chain: generator produces code, three reviewers depend on it
  * - Parallel execution: security, performance, and style reviewers run concurrently
- * - Shared memory: generator writes code, reviewers read it and write feedback,
- *   synthesizer reads all feedback and produces a unified report
+ * - Shared memory: each agent's output is automatically stored and injected
+ *   into downstream agents' prompts by the framework
  *
  * Flow:
  *   generator → [security-reviewer, performance-reviewer, style-reviewer] (parallel) → synthesizer
  *
  * Run:
- *   npx tsx examples/multi-perspective-code-review.ts
+ *   npx tsx examples/14-multi-perspective-code-review.ts
  *
  * Prerequisites:
  *   ANTHROPIC_API_KEY env var must be set.
@@ -39,18 +39,16 @@ const generator: AgentConfig = {
   model: 'claude-sonnet-4-6',
   systemPrompt: `You are a Node.js backend developer. Given an API spec, write a complete
 Express route handler. Include imports, validation, database query, and error handling.
-Store the generated code in shared memory under the key "generated_code".
-Write only the code, no explanation. Keep it under 80 lines.`,
+Output only the code, no explanation. Keep it under 80 lines.`,
   maxTurns: 2,
 }
 
 const securityReviewer: AgentConfig = {
   name: 'security-reviewer',
   model: 'claude-sonnet-4-6',
-  systemPrompt: `You are a security reviewer. Read the code from shared memory key
-"generated_code" and check for OWASP top 10 vulnerabilities: SQL injection, XSS,
-broken authentication, sensitive data exposure, etc. Write your findings as a
-markdown checklist. Store your review in shared memory under "security_review".
+  systemPrompt: `You are a security reviewer. Review the code provided in context and check
+for OWASP top 10 vulnerabilities: SQL injection, XSS, broken authentication,
+sensitive data exposure, etc. Write your findings as a markdown checklist.
 Keep it to 150-200 words.`,
   maxTurns: 2,
 }
@@ -58,10 +56,9 @@ Keep it to 150-200 words.`,
 const performanceReviewer: AgentConfig = {
   name: 'performance-reviewer',
   model: 'claude-sonnet-4-6',
-  systemPrompt: `You are a performance reviewer. Read the code from shared memory key
-"generated_code" and check for N+1 queries, memory leaks, blocking calls, missing
-connection pooling, and inefficient patterns. Write your findings as a markdown
-checklist. Store your review in shared memory under "performance_review".
+  systemPrompt: `You are a performance reviewer. Review the code provided in context and check
+for N+1 queries, memory leaks, blocking calls, missing connection pooling, and
+inefficient patterns. Write your findings as a markdown checklist.
 Keep it to 150-200 words.`,
   maxTurns: 2,
 }
@@ -69,10 +66,9 @@ Keep it to 150-200 words.`,
 const styleReviewer: AgentConfig = {
   name: 'style-reviewer',
   model: 'claude-sonnet-4-6',
-  systemPrompt: `You are a code style reviewer. Read the code from shared memory key
-"generated_code" and check naming conventions, function structure, readability,
-error message clarity, and consistency. Write your findings as a markdown checklist.
-Store your review in shared memory under "style_review".
+  systemPrompt: `You are a code style reviewer. Review the code provided in context and check
+naming conventions, function structure, readability, error message clarity, and
+consistency. Write your findings as a markdown checklist.
 Keep it to 150-200 words.`,
   maxTurns: 2,
 }
@@ -80,9 +76,8 @@ Keep it to 150-200 words.`,
 const synthesizer: AgentConfig = {
   name: 'synthesizer',
   model: 'claude-sonnet-4-6',
-  systemPrompt: `You are a lead engineer synthesizing code review feedback. Read all
-reviews from shared memory (security_review, performance_review, style_review) and
-the original code (generated_code). Produce a unified report with:
+  systemPrompt: `You are a lead engineer synthesizing code review feedback. Review all
+the feedback and original code provided in context. Produce a unified report with:
 
 1. Critical issues (must fix before merge)
 2. Recommended improvements (should fix)
@@ -124,30 +119,30 @@ const team = orchestrator.createTeam('code-review-team', {
 const tasks = [
   {
     title: 'Generate code',
-    description: `Write a Node.js Express route handler for this API spec:\n\n${API_SPEC}\n\nStore the complete code in shared memory as "generated_code".`,
+    description: `Write a Node.js Express route handler for this API spec:\n\n${API_SPEC}`,
     assignee: 'generator',
   },
   {
     title: 'Security review',
-    description: 'Read "generated_code" from shared memory and perform a security review. Store findings in shared memory as "security_review".',
+    description: 'Review the generated code for security vulnerabilities.',
     assignee: 'security-reviewer',
     dependsOn: ['Generate code'],
   },
   {
     title: 'Performance review',
-    description: 'Read "generated_code" from shared memory and perform a performance review. Store findings in shared memory as "performance_review".',
+    description: 'Review the generated code for performance issues.',
     assignee: 'performance-reviewer',
     dependsOn: ['Generate code'],
   },
   {
     title: 'Style review',
-    description: 'Read "generated_code" from shared memory and perform a style review. Store findings in shared memory as "style_review".',
+    description: 'Review the generated code for style and readability.',
     assignee: 'style-reviewer',
     dependsOn: ['Generate code'],
   },
   {
     title: 'Synthesize feedback',
-    description: 'Read all reviews (security_review, performance_review, style_review) and the original generated_code from shared memory. Produce a unified, prioritized action item report.',
+    description: 'Synthesize all review feedback and the original code into a unified, prioritized action item report.',
     assignee: 'synthesizer',
     dependsOn: ['Security review', 'Performance review', 'Style review'],
   },
