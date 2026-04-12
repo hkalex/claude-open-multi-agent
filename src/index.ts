@@ -98,6 +98,7 @@ export {
   fileReadTool,
   fileWriteTool,
   fileEditTool,
+  globTool,
   grepTool,
 } from './tool/built-in/index.js'
 

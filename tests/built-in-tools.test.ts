@@ -6,6 +6,7 @@ import { fileReadTool } from '../src/tool/built-in/file-read.js'
 import { fileWriteTool } from '../src/tool/built-in/file-write.js'
 import { fileEditTool } from '../src/tool/built-in/file-edit.js'
 import { bashTool } from '../src/tool/built-in/bash.js'
+import { globTool } from '../src/tool/built-in/glob.js'
 import { grepTool } from '../src/tool/built-in/grep.js'
 import { registerBuiltInTools, BUILT_IN_TOOLS } from '../src/tool/built-in/index.js'
 import { ToolRegistry } from '../src/tool/framework.js'
@@ -34,7 +35,7 @@ afterEach(async () => {
 // ===========================================================================
 
 describe('registerBuiltInTools', () => {
-  it('registers all 5 built-in tools', () => {
+  it('registers all 6 built-in tools', () => {
     const registry = new ToolRegistry()
     registerBuiltInTools(registry)
 
@@ -43,10 +44,11 @@ describe('registerBuiltInTools', () => {
     expect(registry.get('file_write')).toBeDefined()
     expect(registry.get('file_edit')).toBeDefined()
     expect(registry.get('grep')).toBeDefined()
+    expect(registry.get('glob')).toBeDefined()
   })
 
   it('BUILT_IN_TOOLS has correct length', () => {
-    expect(BUILT_IN_TOOLS).toHaveLength(5)
+    expect(BUILT_IN_TOOLS).toHaveLength(6)
   })
 })
 
@@ -302,6 +304,102 @@ describe('bash', () => {
 
     expect(result.isError).toBe(false)
     expect(result.data).toContain('command completed with no output')
+  })
+})
+
+// ===========================================================================
+// glob
+// ===========================================================================
+
+describe('glob', () => {
+  it('lists files matching a pattern without reading contents', async () => {
+    await writeFile(join(tmpDir, 'a.ts'), 'SECRET_CONTENT_SHOULD_NOT_APPEAR')
+    await writeFile(join(tmpDir, 'b.md'), 'also secret')
+
+    const result = await globTool.execute(
+      { path: tmpDir, pattern: '*.ts' },
+      defaultContext,
+    )
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toContain('.ts')
+    expect(result.data).not.toContain('SECRET')
+    expect(result.data).not.toContain('b.md')
+  })
+
+  it('lists all files when pattern is omitted', async () => {
+    await writeFile(join(tmpDir, 'x.txt'), 'x')
+    await writeFile(join(tmpDir, 'y.txt'), 'y')
+
+    const result = await globTool.execute({ path: tmpDir }, defaultContext)
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toContain('x.txt')
+    expect(result.data).toContain('y.txt')
+  })
+
+  it('lists a single file when path is a file', async () => {
+    const filePath = join(tmpDir, 'only.ts')
+    await writeFile(filePath, 'body')
+
+    const result = await globTool.execute({ path: filePath }, defaultContext)
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toContain('only.ts')
+  })
+
+  it('returns no match when single file does not match pattern', async () => {
+    const filePath = join(tmpDir, 'readme.md')
+    await writeFile(filePath, '# doc')
+
+    const result = await globTool.execute(
+      { path: filePath, pattern: '*.ts' },
+      defaultContext,
+    )
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toContain('No files matched')
+  })
+
+  it('recurses into subdirectories', async () => {
+    const sub = join(tmpDir, 'nested')
+    const { mkdir } = await import('fs/promises')
+    await mkdir(sub, { recursive: true })
+    await writeFile(join(sub, 'deep.ts'), '')
+
+    const result = await globTool.execute(
+      { path: tmpDir, pattern: '*.ts' },
+      defaultContext,
+    )
+
+    expect(result.isError).toBe(false)
+    expect(result.data).toContain('deep.ts')
+  })
+
+  it('errors on inaccessible path', async () => {
+    const result = await globTool.execute(
+      { path: '/nonexistent/path/xyz' },
+      defaultContext,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.data).toContain('Cannot access path')
+  })
+
+  it('notes truncation when maxFiles is exceeded', async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeFile(join(tmpDir, `f${i}.txt`), '')
+    }
+
+    const result = await globTool.execute(
+      { path: tmpDir, pattern: '*.txt', maxFiles: 3 },
+      defaultContext,
+    )
+
+    expect(result.isError).toBe(false)
+    const lines = (result.data as string).split('\n').filter((l) => l.endsWith('.txt'))
+    expect(lines).toHaveLength(3)
+    expect(result.data).toContain('capped at 3')
   })
 })
 

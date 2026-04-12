@@ -62,6 +62,13 @@ function createTestTools() {
   }))
 
   registry.register(defineTool({
+    name: 'glob',
+    description: 'List paths',
+    inputSchema: z.object({ path: z.string().optional() }),
+    execute: async () => ({ data: 'paths', isError: false }),
+  }))
+
+  registry.register(defineTool({
     name: 'bash',
     description: 'Run shell command',
     inputSchema: z.object({ command: z.string() }),
@@ -110,7 +117,15 @@ describe('Tool filtering', () => {
       const tools = (runner as any).resolveTools() as LLMToolDef[]
       const toolNames = tools.map((t: LLMToolDef) => t.name).sort()
 
-      expect(toolNames).toEqual(['bash', 'custom_tool', 'file_edit', 'file_read', 'file_write', 'grep'])
+      expect(toolNames).toEqual([
+        'bash',
+        'custom_tool',
+        'file_edit',
+        'file_read',
+        'file_write',
+        'glob',
+        'grep',
+      ])
     })
   })
 
@@ -124,7 +139,7 @@ describe('Tool filtering', () => {
       const tools = (runner as any).resolveTools() as LLMToolDef[]
       const toolNames = tools.map((t: LLMToolDef) => t.name).sort()
 
-      expect(toolNames).toEqual(['custom_tool', 'file_read', 'grep'])
+      expect(toolNames).toEqual(['custom_tool', 'file_read', 'glob', 'grep'])
     })
 
     it('readwrite preset filters correctly', () => {
@@ -136,7 +151,14 @@ describe('Tool filtering', () => {
       const tools = (runner as any).resolveTools() as LLMToolDef[]
       const toolNames = tools.map((t: LLMToolDef) => t.name).sort()
 
-      expect(toolNames).toEqual(['custom_tool', 'file_edit', 'file_read', 'file_write', 'grep'])
+      expect(toolNames).toEqual([
+        'custom_tool',
+        'file_edit',
+        'file_read',
+        'file_write',
+        'glob',
+        'grep',
+      ])
     })
 
     it('full preset filters correctly', () => {
@@ -148,7 +170,15 @@ describe('Tool filtering', () => {
       const tools = (runner as any).resolveTools() as LLMToolDef[]
       const toolNames = tools.map((t: LLMToolDef) => t.name).sort()
 
-      expect(toolNames).toEqual(['bash', 'custom_tool', 'file_edit', 'file_read', 'file_write', 'grep'])
+      expect(toolNames).toEqual([
+        'bash',
+        'custom_tool',
+        'file_edit',
+        'file_read',
+        'file_write',
+        'glob',
+        'grep',
+      ])
     })
   })
 
@@ -186,7 +216,14 @@ describe('Tool filtering', () => {
       const tools = (runner as any).resolveTools() as LLMToolDef[]
       const toolNames = tools.map((t: LLMToolDef) => t.name).sort()
 
-      expect(toolNames).toEqual(['custom_tool', 'file_edit', 'file_read', 'file_write', 'grep'])
+      expect(toolNames).toEqual([
+        'custom_tool',
+        'file_edit',
+        'file_read',
+        'file_write',
+        'glob',
+        'grep',
+      ])
     })
 
     it('empty denylist returns all tools', () => {
@@ -196,13 +233,13 @@ describe('Tool filtering', () => {
       })
 
       const tools = (runner as any).resolveTools()
-      expect(tools).toHaveLength(6) // All registered tools
+      expect(tools).toHaveLength(7) // All registered tools
     })
   })
 
   describe('resolveTools - combined filtering (preset + allowlist + denylist)', () => {
     it('preset + allowlist + denylist work together', () => {
-      // Start with readwrite preset: ['file_read', 'file_write', 'file_edit', 'grep']
+      // Start with readwrite preset: ['file_read', 'file_write', 'file_edit', 'grep', 'glob']
       // Then allowlist: intersect with ['file_read', 'file_write', 'grep'] = ['file_read', 'file_write', 'grep']
       // Then denylist: subtract ['file_write'] = ['file_read', 'grep']
       const runner = new AgentRunner(mockAdapter, registry, executor, {
@@ -219,7 +256,7 @@ describe('Tool filtering', () => {
     })
 
     it('preset filters first, then allowlist intersects, then denylist subtracts', () => {
-      // Start with readonly preset: ['file_read', 'grep']
+      // Start with readonly preset: ['file_read', 'grep', 'glob']
       // Allowlist intersect with ['file_read', 'bash']: ['file_read']
       // Denylist subtract ['file_read']: []
       const runner = new AgentRunner(mockAdapter, registry, executor, {
