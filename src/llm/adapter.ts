@@ -38,7 +38,7 @@ import type { LLMAdapter } from '../types.js'
  * Additional providers can be integrated by implementing {@link LLMAdapter}
  * directly and bypassing this factory.
  */
-export type SupportedProvider = 'anthropic' | 'copilot' | 'deepseek' | 'grok' | 'minimax' | 'openai' | 'gemini'
+export type SupportedProvider = 'anthropic' | 'copilot' | 'deepseek' | 'grok' | 'litellm' | 'minimax' | 'openai' | 'gemini'
 
 /**
  * Instantiate the appropriate {@link LLMAdapter} for the given provider.
@@ -51,6 +51,7 @@ export type SupportedProvider = 'anthropic' | 'copilot' | 'deepseek' | 'grok' | 
  * - `grok`      → `XAI_API_KEY`
  * - `minimax`   → `MINIMAX_API_KEY`
  * - `deepseek`  → `DEEPSEEK_API_KEY`
+ * - `litellm`   → `LITELLM_API_KEY` (optional; placeholder used for local proxy)
  * - `copilot`   → `GITHUB_COPILOT_TOKEN` / `GITHUB_TOKEN`, or interactive
  *                  OAuth2 device flow if neither is set
  *
@@ -98,6 +99,10 @@ export async function createAdapter(
     case 'deepseek': {
       const { DeepSeekAdapter } = await import('./deepseek.js')
       return new DeepSeekAdapter(apiKey, baseURL)
+    }
+    case 'litellm': {
+      const { LiteLLMAdapter } = await import('./litellm.js')
+      return new LiteLLMAdapter(apiKey, baseURL)
     }
     default: {
       // The `never` cast here makes TypeScript enforce exhaustiveness.

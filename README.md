@@ -17,7 +17,7 @@ CrewAI is Python. LangGraph makes you draw the graph by hand. `open-multi-agent`
 
 - **Goal to result in one call.** `runTeam(team, "Build a REST API")` kicks off a coordinator agent that decomposes the goal into a task DAG, resolves dependencies, runs independent tasks in parallel, and synthesizes the final output. No graph to draw, no tasks to wire up.
 - **TypeScript-native, three runtime dependencies.** `@anthropic-ai/sdk`, `openai`, `zod`. That is the whole runtime. Embed in Express, Next.js, serverless functions, or CI/CD pipelines. No Python runtime, no subprocess bridge, no cloud sidecar.
-- **Multi-model teams.** Claude, GPT, Gemini, Grok, MiniMax, DeepSeek, Copilot, or any OpenAI-compatible local model (Ollama, vLLM, LM Studio, llama.cpp) in the same team. Run the architect on Opus 4.6, the developer on GPT-5.4, the reviewer on local Gemma 4, all in one `runTeam()` call. Gemini ships as an optional peer dependency: `npm install @google/genai` to enable.
+- **Multi-model teams.** Claude, GPT, Gemini, Grok, MiniMax, DeepSeek, LiteLLM, Copilot, or any OpenAI-compatible local model (Ollama, vLLM, LM Studio, llama.cpp) in the same team. Run the architect on Opus 4.6, the developer on GPT-5.4, the reviewer on local Gemma 4, all in one `runTeam()` call. Gemini ships as an optional peer dependency: `npm install @google/genai` to enable.
 
 Other features (MCP integration, context strategies, structured output, task retry, human-in-the-loop, lifecycle hooks, loop detection, observability) live below the fold and in [`examples/`](./examples/).
 
@@ -75,6 +75,8 @@ Set the API key for your provider. Local models via Ollama require no API key �
 - `MINIMAX_API_KEY` (for MiniMax)
 - `MINIMAX_BASE_URL` (for MiniMax — optional, selects endpoint)
 - `DEEPSEEK_API_KEY` (for DeepSeek)
+- `LITELLM_API_KEY` (for LiteLLM — optional for local proxy)
+- `LITELLM_BASE_URL` (for LiteLLM — optional, default: http://localhost:4000)
 - `GITHUB_TOKEN` (for Copilot)
 
 **CLI (`oma`).** For shell and CI, the package exposes a JSON-first binary. See [docs/cli.md](./docs/cli.md) for `oma run`, `oma task`, `oma provider`, exit codes, and file formats.
@@ -142,7 +144,7 @@ For MapReduce-style fan-out without task dependencies, use `AgentPool.runParalle
 
 ## Examples
 
-18 runnable scripts and 1 full-stack demo in [`examples/`](./examples/). Start with these:
+19 runnable scripts and 1 full-stack demo in [`examples/`](./examples/). Start with these:
 
 - [02 — Team Collaboration](examples/02-team-collaboration.ts): `runTeam()` coordinator pattern.
 - [06 — Local Model](examples/06-local-model.ts): Ollama and Claude in one pipeline via `baseURL`.
@@ -150,6 +152,7 @@ For MapReduce-style fan-out without task dependencies, use `AgentPool.runParalle
 - [11 — Trace Observability](examples/11-trace-observability.ts): `onTrace` spans for LLM calls, tools, and tasks.
 - [17 — MiniMax](examples/17-minimax.ts): three-agent team using MiniMax M2.7.
 - [18 — DeepSeek](examples/18-deepseek.ts): three-agent team using DeepSeek Chat.
+- [19 — LiteLLM](examples/19-litellm.ts): three-agent team via a local LiteLLM proxy.
 - [with-vercel-ai-sdk](examples/with-vercel-ai-sdk/): Next.js app — OMA `runTeam()` + AI SDK `useChat` streaming.
 
 Run scripts with `npx tsx examples/02-team-collaboration.ts`.
@@ -190,6 +193,7 @@ Run scripts with `npx tsx examples/02-team-collaboration.ts`.
          │               │  - GrokAdapter       │
          │               │  - MiniMaxAdapter    │
          │               │  - DeepSeekAdapter   │
+         │               │  - LiteLLMAdapter    │
          │               └──────────────────────┘
 ┌────────▼──────────┐
 │  AgentRunner      │    ┌──────────────────────┐
@@ -292,6 +296,7 @@ Notes:
 | MiniMax (global) | `provider: 'minimax'` | `MINIMAX_API_KEY` | Verified |
 | MiniMax (China) | `provider: 'minimax'` + `MINIMAX_BASE_URL` | `MINIMAX_API_KEY` | Verified |
 | DeepSeek | `provider: 'deepseek'` | `DEEPSEEK_API_KEY` | Verified |
+| LiteLLM proxy | `provider: 'litellm'` | `LITELLM_API_KEY` (opt.) | Verified |
 | GitHub Copilot | `provider: 'copilot'` | `GITHUB_TOKEN` | Verified |
 | Gemini | `provider: 'gemini'` | `GEMINI_API_KEY` | Verified |
 | Ollama / vLLM / LM Studio | `provider: 'openai'` + `baseURL` | — | Verified |
@@ -301,7 +306,7 @@ Gemini requires `npm install @google/genai` (optional peer dependency).
 
 Verified local models with tool-calling: **Gemma 4** (see [example 08](examples/08-gemma4-local.ts)).
 
-Any OpenAI-compatible API should work via `provider: 'openai'` + `baseURL` (Groq, Mistral, Qwen, etc.). **Grok, MiniMax, and DeepSeek now have first-class support** via `provider: 'grok'`, `provider: 'minimax'`, and `provider: 'deepseek'`.
+Any OpenAI-compatible API should work via `provider: 'openai'` + `baseURL` (Groq, Mistral, Qwen, etc.). **Grok, MiniMax, DeepSeek, and LiteLLM now have first-class support** via `provider: 'grok'`, `provider: 'minimax'`, `provider: 'deepseek'`, and `provider: 'litellm'`.
 
 ### Local Model Tool-Calling
 
@@ -369,6 +374,17 @@ const deepseekAgent: AgentConfig = {
 ```
 
 Set `DEEPSEEK_API_KEY`. Available models: `deepseek-chat` (DeepSeek-V3, recommended for coding) and `deepseek-reasoner` (thinking mode).
+
+```typescript
+const litellmAgent: AgentConfig = {
+  name: 'litellm-agent',
+  provider: 'litellm',
+  model: 'gpt-4o',  // must match an alias in your proxy config
+  systemPrompt: 'You are a helpful assistant.',
+}
+```
+
+Start a local proxy with `litellm --model openai/gpt-4o` (or any supported backend). Set `LITELLM_BASE_URL` for remote deployments; `LITELLM_API_KEY` for authenticated proxies.
 
 ## Contributing
 
