@@ -28,14 +28,14 @@ import { OpenMultiAgent } from '../src/index.js'
 import type { AgentConfig, OrchestratorEvent } from '../src/types.js'
 
 // The model name must match an alias defined in your LiteLLM proxy config.
-const LITELLM_MODEL = process.env['LITELLM_MODEL'] ?? 'claude-sonnet-4-6'
+const LITELLM_MODEL = process.env['LITELLM_MODEL'] ?? 'MiniMax-M2.7'
 
 // ---------------------------------------------------------------------------
 // Agent definitions (all routing through the LiteLLM proxy)
 // ---------------------------------------------------------------------------
 const architect: AgentConfig = {
   name: 'architect',
-  model: 'claude-opus-4-6', // The model name must match an alias defined in your LiteLLM proxy config.
+  model: LITELLM_MODEL, // The model name must match an alias defined in your LiteLLM proxy config.
   provider: 'litellm',
   systemPrompt: `You are a software architect with deep experience in Node.js and REST API design.
 Your job is to design clear, production-quality API contracts and file/directory structures.
@@ -98,6 +98,8 @@ function handleProgress(event: OrchestratorEvent): void {
       console.error(`[${ts}] ERROR ✗ agent=${event.agent} task=${event.task}`)
       if (event.data instanceof Error) console.error(` ${event.data.message}`)
       break
+    default:
+      console.warn(`[${ts}] UNKNOWN EVENT:`, event)
   }
 }
 
