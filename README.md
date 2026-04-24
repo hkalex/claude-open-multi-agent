@@ -267,8 +267,8 @@ import { z } from 'zod'
 const weatherTool = defineTool({
   name: 'get_weather',
   description: 'Look up current weather for a city.',
-  schema: z.object({ city: z.string() }),
-  execute: async ({ city }) => ({ content: await fetchWeather(city) }),
+  inputSchema: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ data: await fetchWeather(city) }),
 })
 
 const agent: AgentConfig = {
@@ -283,6 +283,34 @@ const agent: AgentConfig = {
 ### Tool Output Control
 
 Long tool outputs can blow up conversation size and cost. Two controls work together.
+
+**Validation (optional).** Add `outputSchema` to catch malformed tool results before they are forwarded:
+
+> **Note — two different `outputSchema` fields.** The one on `defineTool()` /
+> `ToolDefinition` (shown below) validates a single **tool's** `ToolResult.data`
+> — it is always a `ZodSchema<string>` because tool output is serialised as
+> text. The `outputSchema` on [`AgentConfig`](examples/patterns/structured-output.ts)
+> is different: it validates the **agent's final answer** as parsed JSON
+> against an arbitrary Zod schema (see _Structured output_ in `examples/`).
+> Different types, different scopes — TypeScript won't warn you if you mix
+> them up, so pick the one that matches the layer you're working at.
+
+```typescript
+const jsonTool = defineTool({
+  name: 'json_tool',
+  description: 'Return JSON payload as string.',
+  inputSchema: z.object({}),
+  outputSchema: z.string().refine((value) => {
+    try {
+      JSON.parse(value)
+      return true
+    } catch {
+      return false
+    }
+  }, 'Output must be valid JSON'),
+  execute: async () => ({ data: '{"ok": true}' }),
+})
+```
 
 **Truncation.** Cap an individual tool result to a head + tail excerpt with a marker in between:
 

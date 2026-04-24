@@ -263,8 +263,8 @@ import { z } from 'zod'
 const weatherTool = defineTool({
   name: 'get_weather',
   description: '查询某城市当前天气。',
-  schema: z.object({ city: z.string() }),
-  execute: async ({ city }) => ({ content: await fetchWeather(city) }),
+  inputSchema: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ data: await fetchWeather(city) }),
 })
 
 const agent: AgentConfig = {
@@ -279,6 +279,33 @@ const agent: AgentConfig = {
 ### 工具输出控制
 
 工具返回太长会快速撑大对话和成本。两个开关配合着用。
+
+**校验（可选）。** 给工具加 `outputSchema`，在结果回传前拦截结构错误：
+
+> **注意 —— 有两个同名的 `outputSchema`。** 这里 `defineTool()` / `ToolDefinition`
+> 上的 `outputSchema`（下例所示）校验的是单个**工具**的 `ToolResult.data`，类型
+> 固定为 `ZodSchema<string>`，因为工具输出始终以字符串形式序列化。
+> [`AgentConfig`](examples/patterns/structured-output.ts) 上同名的 `outputSchema`
+> 则完全不同：它把 **agent 的最终回答**按 JSON 解析后，用任意 Zod schema 进行
+> 校验（详见 `examples/` 里的"结构化输出"示例）。两者类型和作用域都不一样，
+> 且 TypeScript 不会提示混用，请根据所处层级选用对应的那个。
+
+```typescript
+const jsonTool = defineTool({
+  name: 'json_tool',
+  description: '以字符串返回 JSON 载荷。',
+  inputSchema: z.object({}),
+  outputSchema: z.string().refine((value) => {
+    try {
+      JSON.parse(value)
+      return true
+    } catch {
+      return false
+    }
+  }, '输出必须是合法 JSON'),
+  execute: async () => ({ data: '{"ok": true}' }),
+})
+```
 
 **截断。** 把单次工具结果压成 head + tail 摘要（中间放一个标记）：
 

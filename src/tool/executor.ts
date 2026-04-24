@@ -1,9 +1,10 @@
 /**
  * Parallel tool executor with concurrency control and error isolation.
  *
- * Validates input via Zod schemas, enforces a maximum concurrency limit using
- * a lightweight semaphore, tracks execution duration, and surfaces any
- * execution errors as ToolResult objects rather than thrown exceptions.
+ * Validates input via Zod schemas, optionally validates tool output via
+ * `tool.outputSchema`, enforces a maximum concurrency limit using a lightweight
+ * semaphore, and surfaces any execution errors as ToolResult objects rather
+ * than thrown exceptions.
  *
  * Types are imported from `../types` to ensure consistency with the rest of
  * the framework.
@@ -13,6 +14,7 @@ import type { ToolResult, ToolUseContext } from '../types.js'
 import type { ToolDefinition } from '../types.js'
 import { ToolRegistry } from './framework.js'
 import { Semaphore } from '../utils/semaphore.js'
+import type { ZodSchema } from 'zod'
 
 // ---------------------------------------------------------------------------
 // ToolExecutor
@@ -133,8 +135,14 @@ export class ToolExecutor {
 
   /**
    * Validate input with the tool's Zod schema, then call `execute`.
-   * Any synchronous or asynchronous error is caught and turned into an error
-   * ToolResult.
+   *
+   * When `tool.outputSchema` is configured and the tool returned a
+   * **non-error** result, `result.data` is validated against the schema
+   * before truncation is applied. Error results are forwarded as-is so the
+   * LLM still sees the original failure message.
+   *
+   * Any synchronous or asynchronous error thrown by the tool is caught and
+   * turned into an error {@link ToolResult} instead of propagating.
    */
   private async runTool(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,13 +151,10 @@ export class ToolExecutor {
     context: ToolUseContext,
   ): Promise<ToolResult> {
     // --- Zod validation ---
-    const parseResult = tool.inputSchema.safeParse(rawInput)
-    if (!parseResult.success) {
-      const issues = parseResult.error.issues
-        .map((issue) => `  • ${issue.path.join('.')}: ${issue.message}`)
-        .join('\n')
+    const inputParseResult = this.runZodSchema(tool.inputSchema, rawInput)
+    if (!inputParseResult.success) {
       return this.errorResult(
-        `Invalid input for tool "${tool.name}":\n${issues}`,
+        `Invalid input for tool "${tool.name}":\n${inputParseResult.issuesMessage}`,
       )
     }
 
@@ -162,7 +167,15 @@ export class ToolExecutor {
 
     // --- Execute ---
     try {
-      const result = await tool.execute(parseResult.data, context)
+      const result = await tool.execute(inputParseResult.data, context)
+      if (!result.isError && tool.outputSchema) {
+        const outputParseResult = this.runZodSchema(tool.outputSchema, result.data)
+        if (!outputParseResult.success) {
+          return this.errorResult(
+            `Invalid output for tool "${tool.name}":\n${outputParseResult.issuesMessage}`,
+          )
+        }
+      }
       return this.maybeTruncate(tool, result)
     } catch (err) {
       const message =
@@ -173,6 +186,21 @@ export class ToolExecutor {
             : JSON.stringify(err)
       return this.maybeTruncate(tool, this.errorResult(`Tool "${tool.name}" threw an error: ${message}`))
     }
+  }
+
+  /** Run a Zod schema and return a flattened issue string on failure. */
+  private runZodSchema<T>(schema: ZodSchema<T>, rawInput: T) {
+    const parseResult = schema.safeParse(rawInput)
+    if (!parseResult.success) {
+      const issuesMessage = parseResult.error.issues
+        .map((issue) => `  • ${issue.path.join('.')}: ${issue.message}`)
+        .join('\n')
+      return {
+        ...parseResult,
+        issuesMessage,
+      }
+    }
+    return parseResult
   }
 
   /**

@@ -73,6 +73,15 @@ export function defineTool<TInput>(config: {
   description: string
   inputSchema: ZodSchema<TInput>
   /**
+   * Optional runtime validator for `ToolResult.data`.
+   * When omitted, output validation is skipped.
+   *
+   * `ToolResult.data` is always a `string`, so the schema is fixed to
+   * `ZodSchema<string>` — use `z.string().refine(...)` / `z.string().regex(...)`
+   * (or similar) to enforce structural constraints on the serialised output.
+   */
+  outputSchema?: ZodSchema<string>
+  /**
    * Optional JSON Schema for the LLM (bypasses Zod → JSON Schema conversion).
    */
   llmInputSchema?: Record<string, unknown>
@@ -88,6 +97,9 @@ export function defineTool<TInput>(config: {
     name: config.name,
     description: config.description,
     inputSchema: config.inputSchema,
+    ...(config.outputSchema !== undefined
+      ? { outputSchema: config.outputSchema }
+      : {}),
     ...(config.llmInputSchema !== undefined
       ? { llmInputSchema: config.llmInputSchema }
       : {}),
