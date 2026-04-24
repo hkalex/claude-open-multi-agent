@@ -54,6 +54,7 @@ End-to-end examples framed around a concrete problem (meeting summarization, tra
 | Example | Problem solved |
 |---------|----------------|
 | [`cookbook/meeting-summarizer`](cookbook/meeting-summarizer.ts) | Fan-out post-processing of a transcript into summary, structured action items, and sentiment. |
+| [`cookbook/contract-review-dag`](cookbook/contract-review-dag.ts) | 4-task DAG (extract → compliance-check + summary → notify) with step-level retry. Run normally or with `FORCE_FAIL=task2` to exercise retry. |
 | [`cookbook/competitive-monitoring`](cookbook/competitive-monitoring.ts) | Parallel source monitoring (Twitter/Reddit/News), contradiction detection, and aggregated intelligence reporting. |
 
 ## integrations — external systems
